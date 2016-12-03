@@ -1,0 +1,98 @@
+# Autor Shimanskiy Sergey
+# garethr/docker module requires previously
+# Please verify DB HOST in settings.py of Django project
+class docker_cluster {
+
+include 'docker'
+
+docker_network { 'FlyNet':
+  ensure   	=> 'present',
+  driver   	=> 'bridge',
+  subnet   	=> '172.20.0.0/16',
+  gateway  	=> '172.20.0.1',
+}
+
+### Downloading code/ directory with Django App and dockerfiles
+file { '/tmp/code':
+  ensure 	=> directory,
+  source 	=> 'puppet:///modules/docker_cluster/code/',
+  recurse 	=> remote,
+}
+
+/* Build and run Master DB Postgres */
+docker::image { 'flyer8/pg-master': docker_file => '/tmp/code/Dockerfile.pgmaster', }
+docker::run { 'pg-master':
+  ensure 	=> 'present',
+  image 	=> 'flyer8/pg-master',
+  ports		=> ['5432'],
+  net 		=> 'FlyNet',
+  extra_parameters => [ '--ip=172.20.0.10' ],
+  volumes 	=> ['/var/lib/postgresql'],
+  hostname 	=> 'pg-master',
+  env 		=> ['POSTGRES_USER=postgres', 'POSTGRES_PASSWORD=postgres', 'PGDATA=/var/lib/postgresql'],
+#  restart_service => false,
+  privileged  => false,
+}
+
+/* Build and run 1-st Web App Django */
+exec { 'Build_django_image': command => '/usr/bin/docker build -t flyer8/django --file /tmp/code/Dockerfile.django /tmp/code', }
+docker::run { 'django1':
+  ensure	=> 'present',
+  image		=> 'flyer8/django',
+  hostname  => 'django1',
+  command	=> '/bin/bash -c "python manage.py inspectdb > loyalty_app/models.py && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"',
+  ports 	=> ['8000:8000'],
+  links  	=> ['pg-master'],
+  net       => 'FlyNet',
+  extra_parameters => [ '--ip=172.20.0.15'],
+  volumes   => ['/tmp/code:/code'],
+  depends   => [ 'pg-master'],
+  after     => [ 'pg-master'],
+}
+
+/* Build and run Slave DB Postgres */
+docker::image { 'flyer8/pg-slave': docker_file => '/tmp/code/Dockerfile.pgslave', }
+docker::run { 'pg-slave':
+  ensure 	=> 'present',
+  image 	=> 'flyer8/pg-slave',
+  ports		=> ['5432'],
+  links  	=> ['pg-master'],
+  net 		=> 'FlyNet',
+  extra_parameters => [ '--ip=172.20.0.11' ],
+  volumes 	=> ['/var/lib/postgresql'],
+  hostname 	=> 'pg-slave',
+  env 		=> ['POSTGRES_USER=postgres', 'POSTGRES_PASSWORD=postgres', 'PGDATA=/var/lib/postgresql', 'REPLICATE_FROM=pg-master'],
+  after     => [ 'pg-master'],
+}
+
+/*### Run 2-nd Web App Django 
+docker::run { 'django2':
+  ensure	=> 'present',
+  image		=> 'flyer8/django',
+  hostname  => 'django2',
+  command	=> '/bin/bash -c "python manage.py inspectdb > loyalty_app/models.py && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"',
+  ports 	=> ['8000'],
+  links  	=> ['pg-master'],
+  net       => 'FlyNet',
+  extra_parameters => ['--ip=172.20.0.16'],
+  volumes   => ['/tmp/code:/code'],
+  depends   => [ 'pg-master'],
+  after     => [ 'django1'],
+} 
+
+### Pull and Run Load balancer
+docker::run { 'lb':
+  ensure	=> 'present',
+  image		=> 'tutum/haproxy',
+  hostname  => 'haproxy',
+  ports 	=> ['80:80','1936:1936'],
+  links  	=> ['django1', 'django2'],
+#  depends   => ['django', 'django2'],
+  net       => 'FlyNet',
+  extra_parameters => [ '--ip=172.20.0.5'],
+#  volumes   => ['/var/run/docker.sock:/var/run/docker.sock','/tmp/code/haproxy.cfg:/etc/haproxy/haproxy.cfg'],
+  volumes   => ['/tmp/code/haproxy.cfg:/etc/haproxy/haproxy.cfg'],
+ after     => [ 'django'],
+}
+*/
+}

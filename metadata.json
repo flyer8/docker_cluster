@@ -1,0 +1,15 @@
+{
+  "name": "flyer8-docker_cluster",
+  "version": "0.1.0",
+  "author": "flyer8",
+  "summary": "Django WebApp + PostgreSQL (master/slave)",
+  "license": "Apache-2.0",
+  "source": "https://github.com/flyer8",
+  "project_page": null,
+  "issues_url": null,
+  "dependencies": [
+    {"name":"puppetlabs-stdlib","version_requirement":">= 1.0.0"}
+  ],
+  "data_provider": null
+}
+
