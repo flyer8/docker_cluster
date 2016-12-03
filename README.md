@@ -1,4 +1,5 @@
 # docker_cluster
+<<<<<<< HEAD
 
 #### Table of Contents
 
@@ -81,3 +82,6 @@ know what the ground rules for contributing are.
 If you aren't using changelog, put your release notes here (though you should
 consider using changelog). You can also add any additional sections you feel
 are necessary or important to include here. Please use the `## ` header.
+=======
+Django WebApp + PostgreSQL (Master/Slave)
+>>>>>>> 65399e97aaf5ac7e2ebce698b8d5f37d4a5c0343
